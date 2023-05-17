@@ -5,6 +5,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -61,6 +62,27 @@ const deleteImg = (req, res, next) => {
   });
 };
 
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res
+      .status(401)
+      .send({ error: true, message: "unauthorized access" });
+  }
+
+  const token = authorization.split(" ")[1];
+  // verify a token
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+    if (err) {
+      return res
+        .status(401)
+        .send({ error: true, message: "unauthorized access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -70,6 +92,14 @@ async function run() {
     const volunteers = database.collection("volunteers");
     const events = database.collection("events");
     const usersEvents = database.collection("usersEvents");
+
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
 
     app.get("/volunteers", async (req, res) => {
       const cursor = volunteers.find({});
@@ -111,8 +141,18 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users-events", async (req, res) => {
-      const cursor = usersEvents.find({});
+    app.get("/users-events", verifyJWT, async (req, res) => {
+      const decoded = req.decoded;
+      const email = req.query.email;
+
+      if (decoded.email !== email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+
+      const query = { user_email: email };
+      const cursor = usersEvents.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
