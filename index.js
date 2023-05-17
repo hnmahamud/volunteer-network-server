@@ -69,10 +69,78 @@ async function run() {
     const database = client.db("volunteerNetworkDB");
     const volunteers = database.collection("volunteers");
     const events = database.collection("events");
+    const usersEvents = database.collection("usersEvents");
 
     app.get("/volunteers", async (req, res) => {
       const cursor = volunteers.find({});
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.post("/volunteers", async (req, res) => {
+      const volunteer = req.body;
+
+      const query = { email: volunteer.email };
+      const isExist = await volunteers.findOne(query);
+      if (isExist) {
+        console.log("Email already registered!");
+        return res.send({ error: true, message: "Email already registered!" });
+      }
+      const doc = {
+        ...volunteer,
+      };
+      const result = await volunteers.insertOne(doc);
+      if (result.insertedId) {
+        console.log("Volunteer registration successful!");
+      } else {
+        console.log("Volunteer registration failed!");
+      }
+      res.send(result);
+    });
+
+    app.delete("/volunteers/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await volunteers.deleteOne(query);
+
+      if (result.deletedCount === 1) {
+        console.log("Successfully deleted one document.");
+      } else {
+        console.log("No documents matched the query. Deleted 0 documents.");
+      }
+      res.send(result);
+    });
+
+    app.get("/users-events", async (req, res) => {
+      const cursor = usersEvents.find({});
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.post("/users-events", async (req, res) => {
+      const userEvent = req.body;
+      const doc = {
+        ...userEvent,
+      };
+      const result = await usersEvents.insertOne(doc);
+      if (result.insertedId) {
+        console.log("Event added successful!");
+      } else {
+        console.log("Event added failed!");
+      }
+      res.send(result);
+    });
+
+    app.delete("/users-events/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersEvents.deleteOne(query);
+
+      if (result.deletedCount === 1) {
+        console.log("Successfully deleted one document.");
+      } else {
+        console.log("No documents matched the query. Deleted 0 documents.");
+      }
       res.send(result);
     });
 
